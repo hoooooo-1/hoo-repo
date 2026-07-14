@@ -212,3 +212,27 @@
   |Ctrl + D|退出当前终端会话 (等同于 exit)|  
   |Tab|	自动补全命令或文件路径 (连按两次列出匹配)|  
   |history|直接控制台打印查看所有的历史执行命令|  
+  ---
+## 四、GitHub SSH Key 配置问题及解决方法  
+4.1 问题：直接输入SSH地址提示 No such file or directory
+- 原因：把仓库地址当成文件路径执行，语法错误，不能直接粘贴SSH链接运行
+- 解决：使用 `git clone 仓库SSH地址` 命令拉取仓库
+
+4.2 问题：在 /d/gitcode 执行 git remote 提示 fatal: not a git repository
+- 原因：gitcode 是外层文件夹，未进入带 .git 仓库根目录，Git无法识别仓库
+- 解决：`cd hoo-repo` 进入克隆生成的仓库文件夹后，再执行remote相关命令
+
+4.3 问题：克隆仓库后切换目录才能正常查看远程地址
+- 现象：执行 git clone 下载仓库成功，切换到 hoo-repo 目录后 git remote -v 正常输出SSH远程地址  
+- 实操图片  
+  <img src="https://s3.bmp.ovh/2026/07/14/Vezyea8q.png" width="350">
+- 正确流程：
+```bash
+# 1. 克隆线上仓库到本地
+git clone git@github.com:hoooooo-1/hoo-repo.git
+# 2. 进入仓库目录
+cd hoo-repo
+# 3. 查看远程SSH地址，验证绑定成功
+git remote -v   
+```
+---
