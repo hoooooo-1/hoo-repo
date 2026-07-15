@@ -89,7 +89,7 @@
 
 >[!WARNING]
 >警告  
-## 二、WSL下载安装过程常见问题及解决方案
+## 二、WSL及GitHub SSH Key下载安装过程常见问题及解决方案
 ### 2.1 Windows功能开启失败
 #### 2.1.1 现象
     执行开启虚拟机平台、WSL子系统命令报错；控制面板勾选对应功能无法保存。
@@ -113,8 +113,30 @@
 #### 2.4.1 现象
     WSL镜像默认存放C盘，占用大量系统存储空间，无安装路径选择弹窗。
 #### 2.4.2 解决办法
-    使用`wsl --export`导出镜像、`wsl --import`导入，将子系统迁移至D盘。
----
+    使用`wsl --export`导出镜像、`wsl --import`导入，将子系统迁移至D盘。  
+
+### 2.5 问题：直接输入SSH地址提示 No such file or directory
+- 原因：把仓库地址当成文件路径执行，语法错误，不能直接粘贴SSH链接运行
+- 解决：使用 `git clone 仓库SSH地址` 命令拉取仓库
+
+### 2.6 问题：在 /d/gitcode 执行 git remote 提示 fatal: not a git repository
+- 原因：gitcode 是外层文件夹，未进入带 .git 仓库根目录，Git无法识别仓库
+- 解决：`cd hoo-repo` 进入克隆生成的仓库文件夹后，再执行remote相关命令
+
+### 2.7 问题：克隆仓库后切换目录才能正常查看远程地址
+- 现象：执行 git clone 下载仓库成功，切换到 hoo-repo 目录后 git remote -v 正常输出SSH远程地址  
+- 实操图片  
+  <img src="https://s3.bmp.ovh/2026/07/14/Vezyea8q.png" width="350">
+- 正确流程：
+```bash
+# 1. 克隆线上仓库到本地
+git clone git@github.com:hoooooo-1/hoo-repo.git
+# 2. 进入仓库目录
+cd hoo-repo
+# 3. 查看远程SSH地址，验证绑定成功
+git remote -v   
+```
+
 ---
 ## 三、Linux 入门命令教程  
 ### 3.1 常见命令  
@@ -212,27 +234,430 @@
   |Ctrl + D|退出当前终端会话 (等同于 exit)|  
   |Tab|	自动补全命令或文件路径 (连按两次列出匹配)|  
   |history|直接控制台打印查看所有的历史执行命令|  
-  ---
-## 四、GitHub SSH Key 配置问题及解决方法  
-4.1 问题：直接输入SSH地址提示 No such file or directory
-- 原因：把仓库地址当成文件路径执行，语法错误，不能直接粘贴SSH链接运行
-- 解决：使用 `git clone 仓库SSH地址` 命令拉取仓库
 
-4.2 问题：在 /d/gitcode 执行 git remote 提示 fatal: not a git repository
-- 原因：gitcode 是外层文件夹，未进入带 .git 仓库根目录，Git无法识别仓库
-- 解决：`cd hoo-repo` 进入克隆生成的仓库文件夹后，再执行remote相关命令
 
-4.3 问题：克隆仓库后切换目录才能正常查看远程地址
-- 现象：执行 git clone 下载仓库成功，切换到 hoo-repo 目录后 git remote -v 正常输出SSH远程地址  
-- 实操图片  
-  <img src="https://s3.bmp.ovh/2026/07/14/Vezyea8q.png" width="350">
-- 正确流程：
-```bash
-# 1. 克隆线上仓库到本地
-git clone git@github.com:hoooooo-1/hoo-repo.git
-# 2. 进入仓库目录
-cd hoo-repo
-# 3. 查看远程SSH地址，验证绑定成功
-git remote -v   
+---
+## 四、Python 基础语法
+
+### 4.1 变量、常量与数据类型
+
+#### 4.1.1 变量
+- 无需声明类型，直接赋值即创建
+- 命名规则：字母/下划线开头，区分大小写，避开关键字
+- 动态类型：同一变量可被赋值为不同类型
+
+```python
+name = "Alice"   # 字符串
+age = 25         # 整数
+score = 95.5     # 浮点数
+is_pass = True   # 布尔值
+name = 100       # 合法，变量类型动态改变
+```
+
+#### 4.1.2 常量（约定）
+- Python 没有真正的常量，用全大写命名表示“不应改变”
+
+```python
+PI = 3.14159
+MAX_CONNECTIONS = 100
+```
+
+#### 4.1.3 基本数据类型
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `int` | 整数（任意精度） | `42`, `-7`, `0` |
+| `float` | 浮点数（双精度） | `3.14`, `-0.5`, `2.0` |
+| `bool` | 布尔值 | `True`, `False` |
+| `str` | 字符串（不可变序列） | `"hello"`, `'world'` |
+| `NoneType` | 空值 | `None` |
+
+#### 4.1.4 类型转换
+
+```python
+int("123")        # 123
+float("3.14")     # 3.14
+str(100)          # "100"
+bool(0)           # False（0、空字符串、空列表等为 False）
+bool(1)           # True
+```
+
+#### 4.1.5 类型检查
+
+```python
+type(42)          # <class 'int'>
+isinstance(3.14, float)  # True
+```
+
+### 4.2 运算符与表达式
+
+#### 4.2.1 算术运算符
+
+| 运算符 | 含义 |
+|--------|------|
+| `+` | 加 |
+| `-` | 减 |
+| `*` | 乘 |
+| `/` | 除（浮点数） `5 / 2` = `2.5`|  
+| `//` | 整除（向下取整）`5 / 2` = `2` |
+| `%` | 取余 | 
+| `**` | 幂运算 | 
+
+#### 4.2.2 比较运算符（返回布尔值）
+
+| 运算符 | 含义 |
+|--------|------|
+| `==` | 等于 |
+| `!=` | 不等于 |
+| `>` | 大于 |
+| `<` | 小于 | 
+| `>=` | 大于等于 | 
+| `<=` | 小于等于 | 
+
+#### 4.2.3 逻辑运算符（短路运算）
+
+| 运算符 | 含义 | 示例 |
+|--------|------|------|
+| `and` | 与 | `True and False` → `False` |
+| `or` | 或 | `True or False` → `True` |
+| `not` | 非 | `not True` → `False` |
+
+#### 4.2.4 成员运算符
+
+```python
+"a" in "abc"       # True
+"x" not in "abc"   # True
+3 in [1, 2, 3]     # True
+```
+#### 4.2.5 身份运算符（与 `==` 的区别）
+
+```python
+a = [1, 2]
+b = [1, 2]
+c = a
+a == b      # True（值相等）
+a is b      # False（不同对象）
+a is c      # True（同一对象）
+```
+
+#### 4.2.6 赋值运算符
+
+```python
+= += -= *= /=     
+```
+
+#### 4.2.7 运算符优先级（从高到低）
+1. `**`
+2. `+x, -x`（正负号）
+3. `* , /, //, %`
+4. `+, -`
+5. `==, !=, >, <, >=, <=`
+6. `not`
+7. `and`
+8. `or`
+
+> 不确定优先级时，用 `( )` 明确表达意图
+
+### 4.3 输入与输出
+
+#### 4.3.1 `print()` 输出
+
+```python
+print("Hello")                    # 自动换行
+print(1, 2, 3, sep="-")           # 1-2-3（指定分隔符）
+print("Hello", end="")            # 不换行
+print("World")                    # HelloWorld（同行输出）  
+print('''hhh
+ooo''')                           #会直接换行，不用手动输出\n  
+print(""" hello                   
+world""")                         #用 " 或者 ' 都行
+```
+    
+#### 4.3.2 格式化输出
+**1.`%` 占位符**
+
+```python
+name = "Alice"
+age = 25
+print("姓名：%s，年龄：%d" % (name, age))
+```
+
+**2.`str.format()` 方法**
+
+```python
+print("姓名：{}，年龄：{}".format(name, age))
+print("姓名：{n}，年龄：{a}".format(n=name, a=age))
+```
+
+**3.f-string（Python 3.6+，最推荐）**
+
+```python
+print(f"姓名：{name}，年龄：{age}")
+print(f"年龄×2 = {age * 2}")          # 支持表达式
+```
+   
+
+#### 4.3.3 `input()` 输入
+
+```python
+name = input("请输入你的姓名：")    # 返回字符串
+age = int(input("请输入年龄："))    # 需手动转类型
+```
+
+### 4.4 流程控制
+
+#### 4.4.1 `if` / `elif` / `else` 条件判断
+
+```python
+score = 85
+
+if score >= 90:
+    grade = "A"
+elif score >= 80:
+    grade = "B"
+elif score >= 70:
+    grade = "C"
+else:
+    grade = "D"
+
+print(f"等级：{grade}")
+```
+
+#### 4.4.2 三元运算符（条件表达式）
+
+```python
+# 语法：值1 if 条件 else 值2
+age = 18
+status = "成年" if age >= 18 else "未成年"
+```
+
+#### 4.4.3 `while` 循环
+
+```python
+i = 1
+while i <= 5:
+    print(i)
+    i += 1          # 注意更新条件，避免死循环
+```
+
+#### 4.4.4 `for` 循环（遍历可迭代对象）
+
+```python
+# 遍历字符串
+for ch in "Python":
+    print(ch)
+
+# 遍历列表
+for item in [1, 2, 3]:
+    print(item)
+
+# 使用 range()
+for i in range(5):        # 0, 1, 2, 3, 4
+    print(i)
+
+for i in range(1, 10, 2): # 1, 3, 5, 7, 9（起始，结束步长）
+    print(i)
+```
+
+#### 4.4.5 循环控制：`break` / `continue` / `pass`
+
+```python
+# break：提前终止循环
+for i in range(10):
+    if i == 5:
+        break
+    print(i)          # 输出 0~4
+
+# continue：跳过本次循环
+for i in range(5):
+    if i == 2:
+        continue
+    print(i)          # 输出 0,1,3,4
+
+# pass：占位符，什么都不做
+if x > 0:
+    pass              # 后续再实现
+```
+
+#### 4.4.6 `for` / `while` 中的 `else` 子句
+
+```python
+# 循环未被 break 中断时，执行 else
+for i in range(3):
+    print(i)
+else:
+    print("循环正常结束")    # 会被执行
+
+for i in range(3):
+    if i == 1:
+        break
+    print(i)
+else:
+    print("循环正常结束")    # 不会执行（被 break 打断）
+```
+
+### 4.5 数据结构（容器）
+
+#### 4.5.1 列表（list）—— 可变、有序
+
+```python
+# 创建
+lst = [1, 2, 3, 4]
+empty = []
+
+# 增
+lst.append(5)          # [1,2,3,4,5]
+lst.insert(0, 0)       # [0,1,2,3,4,5]
+lst.extend([6, 7])     # [0,1,2,3,4,5,6,7]
+
+# 删
+lst.pop()              # 移除最后一项并返回
+lst.pop(0)             # 移除索引0
+lst.remove(3)          # 移除第一个值为3的元素
+del lst[0]             # 删除索引0
+
+# 改
+lst[0] = 100
+
+# 查
+lst[0]                 # 索引访问
+lst[-1]                # 最后一项
+lst[1:4]               # 切片（索引1~3）
+
+# 其他
+len(lst)               # 长度
+max(lst) / min(lst)    # 最大/最小
+sum(lst)               # 求和
+sorted(lst)            # 返回新排序列表
+lst.sort()             # 原地排序
+lst.reverse()          # 反转
+
+# 列表推导式（生成新列表）
+squares = [x**2 for x in range(5)]           # [0,1,4,9,16]
+evens = [x for x in range(10) if x % 2 == 0] # [0,2,4,6,8]
+```
+
+#### 4.5.2 元组（tuple）—— 不可变、有序
+
+```python
+# 创建
+t = (1, 2, 3)
+t2 = 1, 2, 3           # 括号可省略
+single = (5,)          # 单元素元组必须有逗号
+
+# 访问（同列表）
+t[0]                   # 1
+t[-1]                  # 3
+t[1:3]                 # (2,3)
+
+# 不可变性
+# t[0] = 100           # 报错 TypeError
+
+# 用途：函数返回多个值、作为字典键
+a, b, c = t            # 元组解包
+```
+
+#### 4.5.3 字典（dict）—— 键值对、3.7+ 有序
+
+```python
+# 创建
+d = {"name": "Alice", "age": 25}
+d2 = dict(name="Bob", age=30)
+
+# 增/改
+d["city"] = "Beijing"   # 新增
+d["age"] = 26           # 修改
+
+# 删
+del d["city"]
+age = d.pop("age")      # 删除并返回值
+d.clear()               # 清空
+
+# 查
+d["name"]               # 键不存在会报错 KeyError
+d.get("name")           # 键不存在返回 None
+d.get("gender", "未知") # 键不存在返回默认值
+
+# 遍历
+for key in d:
+    print(key, d[key])
+
+for value in d.values():
+    print(value)
+
+for key, value in d.items():
+    print(key, value)
+
+# 字典推导式
+squares_dict = {x: x**2 for x in range(5)}  # {0:0  
 ```
 ---
+## 五、ROS2 学习  
+### 5.1 项目创建  
+#### 5.1.1 基础学习  
+- **节点 ：** 只负责一个单独的模块化的功能（比如一个节点负责控制车轮转动，一个节点负责从激光雷达获取数据、一个节点负责处理激光雷达的数据、一个节点负责定位等等）  
+- **节点交互**  
+  >- 话题-topics
+  >-  服务-services
+  >-  动作-Action
+  >-  参数-parameters  
+- **工作空间**   
+   
+  工作空间是包含若干个功能包的目录，可以把工作空间理解成一个文件夹。这个文件夹包含下有src   
+
+  > 创建工作空间  
+  mkdir -p dev_ws/src  
+- **功能包**  
+  功能包可以理解为存放节点的地方，ROS2中功能包根据编译方式的不同分为三种类型。  
+  |功能包|程序类型|  
+  |------|--------|  
+  |ament_python|python程序|  
+  |cmake|C++|  
+  |ament_cmake|C++程序,是cmake的增强版|  
+  
+  创建功能包 : 
+  >ros2 pkg create   --build-type  {cmake,ament_cmake,ament_python}  --dependencies <依赖名字>
+#### 5.1.2 构建流程  
+- **创建工作空间**  
+  >建立一个项目文件夹   
+  <mark>mkdir -p 文件名/src</mark>  
+- **创建功能包**  
+  >进入src里
+  >>- cpp : ros2 pkg create pkg01_hello_cpp --build-type ament_cmake --dependencies rclcpp --node-name hello_node  
+  >>- py :  ros2 pkg create pkg02_hello_py --build-type ament_python --dependencies rclpy --node-name hello_node
+- **编写源代码**  
+    
+  **cpp :** 
+    |功能|代码|
+    |----|-----|  
+    |编程接口初始化|rclcpp::init(argc, argv);| 
+    |创建节点并初始化|auto node = rclcpp::Node::make_shared("hello_node");|  
+    |实现节点功能|RCLCPP_INFO(node->get_logger(), "hello world!");|  
+    |销毁节点并关闭接口|rclcpp::shutdown();|
+
+  <img src="https://s3.bmp.ovh/2026/07/14/Cv8HnqBs.png" width="490"> 
+   
+  **py :**  
+
+   |功能|代码|
+    |----|-----|  
+    |编程接口初始化|rclpy.init()| 
+    |创建节点并初始化|node = rclpy.create_node("helloworld")|  
+    |实现节点功能|node.get_logger().info("hello_py")|  
+    |销毁节点并关闭接口|rclpy.shutdown()|  
+
+  <img src="https://s3.bmp.ovh/2026/07/15/keCSnQCz.png" width="450">  
+- **设置编译规则**  
+- **编译与测试**  
+  >colcon build
+- **功能运行**  
+  >. install/setup.bash (.后有空格)   
+  ros2 run pkg01_hello_cpp hello_node (ros2 run 包 节点)  
+  <img src="https://s3.bmp.ovh/2026/07/15/MK2XvDgK.png" width="430">  
+---
+### 5.2 遇到的问题  
+- 报错  Conflicting values set for option Signed-By  + 疯狂打印PGP密钥块  
+  
+  <img src="https://s3.bmp.ovh/2026/07/15/GflRhfko.jpg" alt="b0b6cf9baa14482f99cb63744d23b382.jpg" /> 
+
+  >目录里有 ros2.resources 和 ros2.list 两个文件，冲突了，用sudo rm /etc/apt/sources.list.d/ros2.list 删掉了 ros2.list 就好了 
