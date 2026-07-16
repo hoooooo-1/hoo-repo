@@ -237,7 +237,7 @@ git remote -v
 
 
 ---
-## 四、Python 基础语法
+## 四、Python 基础语法（核心语法速通）
 
 ### 4.1 变量、常量与数据类型
 
@@ -374,7 +374,7 @@ world""")                         #用 " 或者 ' 都行
 ```
     
 #### 4.3.2 格式化输出
-**1.`%` 占位符**
+**1. `%` 占位符**
 
 ```python
 name = "Alice"
@@ -382,14 +382,14 @@ age = 25
 print("姓名：%s，年龄：%d" % (name, age))
 ```
 
-**2.`str.format()` 方法**
+**2. `str.format()` 方法**
 
 ```python
 print("姓名：{}，年龄：{}".format(name, age))
 print("姓名：{n}，年龄：{a}".format(n=name, a=age))
 ```
 
-**3.f-string（Python 3.6+，最推荐）**
+**3. f-string（Python 3.6+）**
 
 ```python
 print(f"姓名：{name}，年龄：{age}")
@@ -558,6 +558,12 @@ a, b, c = t            # 元组解包
 ```
 
 #### 4.5.3 字典（dict）—— 键值对、3.7+ 有序
+```python
+字典名.keys()         #返回所有键  
+字典名.values()       #返回所有值 
+字典名.itms()         #返回所有键值组
+```
+
 
 ```python
 # 创建
@@ -589,8 +595,131 @@ for key, value in d.items():
     print(key, value)
 
 # 字典推导式
-squares_dict = {x: x**2 for x in range(5)}  # {0:0  
-```
+squares_dict = {x: x**2 for x in range(5)}   
+```  
+#### 4.5.4 类与对象  
+- **类** 是创建对象的蓝图或模板。它定义了一组属性和方法。
+- **对象** 是根据类创建出来的具体实例。  
+
+  ---  
+- 使用 `class` 关键字定义类，使用 `__init__` 方法（构造函数）初始化属性。
+   ```python  
+  class people:
+    #实例初始化方法（构造函数）
+    def __init__(self, name, age):
+        self.name = name   
+        self.age = age  
+    #实例方法
+    def play(self,参数···)
+         print(f"{self.name}在开心的玩")  
+   ```  
+#### 4.5.5 封装  
+- **定义**  
+  封装是将对象的内部状态（属性）隐藏起来，仅通过公开的方法（接口）与外界交互。这防止了外部代码直接修改内部数据，保证了数据的安全性和完整性。  
+- **公有成员：**   
+  默认所有属性和方法都是公有的，可以直接访问。
+- **私有成员：**   
+  在名称前加`双下划线`__（如 __age），Python 会进行名称修饰（Name Mangling），使其不易被外部直接访问。  
+  ```python
+  class BankAccount:
+    def __init__(self, owner, balance):
+        self.owner = owner          # 公有属性
+        self.__balance = balance    # 私有属性（名义上保护）
+    
+    def deposit(self, amount):
+        if amount > 0:
+            self.__balance += amount
+            self.__log_transaction(amount)
+    
+    def get_balance(self):          # 通过公有方法访问私有属性
+        return self.__balance
+    
+    def __log_transaction(self, amt):  # 私有方法（内部使用）
+        print(f"Log: ${amt} deposited.")
+  acc = BankAccount("Alice", 1000)
+  print(acc.__balance)   # 报错：AttributeError
+  print(acc.get_balance()) # 1000
+  ```  
+- 使用 @property 可以将方法当作属性来调用  
+  ```python  
+  class Person:
+    def __init__(self, name, age):
+        self._name = name
+        self._age = age
+    @property
+    def age(self):          # 相当于 getter
+        return self._age  
+        p = Person("Bob", 25)
+  print(p.age)    # 25（调用方法，但像访问属性一样）
+  p.age = 30 
+  ```
+#### 4.5.6 继承  
+- 语法：`class Child(Parent):`
+- 使用 `super()` 调用父类方法（通常是 `__init__`）。
+- 子类可重写父类方法，或新增方法。  
+```python  
+class Employee:
+    def __init__(self,name,id):
+        self.name=name
+        self.id=id
+    def printdetails(self):
+        print(f"name:{self.name},id={self.id}")
+class PartTimeemployee(Employee):
+    def __init__(self,name,id,daily_salay,workdays):
+        super().__init__(name,id)
+        self.daily_salsry=daily_salay
+        self.workdays=workdays
+    def cal_slary(self):
+        print(f"monthly salary of {self.name} is {self.daily_salsry*self.workdays}")
+class Fulltimeemployee(Employee):
+    def __init__(self,name,id,month_salay):
+        super().__init__(name,id)
+        self.month_salsy=month_salay
+    def cal_slary(self):
+        print(f"monthly salary of {self.name} is {self.month_salsy}")
+
+```  
+- **isinstance(obj, Class)：判断 obj 是否是 Class 或其子类的实例。**  
+- **issubclass(Sub, Parent)：判断 Sub 是否是 Parent 的子类。**
+#### 4.5.7 多态  
+- **多态**指不同的对象对同一消息（方法调用）做出不同的响应。它让程序变得更加灵活和可扩展。
+- **方法重写**：子类提供与父类同名但逻辑不同的方法。
+- **统一调用**：遍历不同类的对象列表，调用相同方法名，自动执行各自逻辑。
+### 4.6 文件  
+#### 4.6.1 固定流程：
+1. **打开文件** → 建立程序与文件之间的连接，获得文件对象。  
+   `f = open("文件的相对路径或者是绝对路径","模式，如r/w/a/r+等等")`  
+   `with open("文件的相对路径或者是绝对路径","模式，如r/w/a/r+等等") as f:`
+2. **读写操作** → 从文件读取数据或将数据写入文件。
+3. **关闭文件** → 释放文件资源，确保数据完整写入磁盘。  
+   `f.close()`
+#### 4.6.2 主要模式  
+- **只读（`r`）**：只能读取，文件必须已存在。
+- **只写（`w`）**：只能写入，文件不存在则创建，存在则清空原有内容。
+- **追加（`a`）**：只能写入，文件不存在则创建，数据追加到末尾。
+- **读写模式（`+`）**：可读可写，可与其他模式组合（如 `r+`、`w+`、`a+`）。
+---
+- **独占创建（`x`）**：写入模式，但要求文件不存在，否则报错。  
+- **文本模式（`t`）**：默认模式，处理文本数据，有编码转换。
+- **二进制模式（`b`）**：处理二进制数据，不进行编码转换。  
+#### 4.6.3 文件指针  
+- 文件指针指示当前读写操作的起始位置，是一个整数（字节偏移量）。
+- 每次读写操作后，指针会自动后移相应字节数。  
+- 获取当前位置：tell()  `pos = f.tell()`
+- 移动指针：seek()  `f.seek(0)移动到文件开头的位置`  
+- f.write("Hello, World!")
+- print(f.read())   #输出文件中的全部内容    
+  >read(size=-1) 不传参数或传入 -1，则一次性读取整个文件直到 EOF（文件末尾）  
+
+  >readline(size=-1)  每次只读取一行内容（以换行符 \n 为界）。如果文件结束，返回空字符串 ''。  
+
+  >readlines(hint=-1)   
+  >一次性读取文件的所有行，并将它们放入一个列表中。
+参数：hint 用于控制读取的行数。默认读取全部。如果指定了 hint，它会读取大约 hint 个字节/字符对应的行数（它不是按行数截断，而是按字节数估算）。
+#### 4.6.4 异常错误捕捉  
+  <img src="https://s3.bmp.ovh/2026/07/16/qZARpdXv.png" width="350">  
+
+
 ---
 ## 五、ROS2 学习  
 ### 5.1 项目创建  
