@@ -726,11 +726,51 @@ class Fulltimeemployee(Employee):
 #### 5.1.1 基础学习  
 - **节点 ：** 只负责一个单独的模块化的功能（比如一个节点负责控制车轮转动，一个节点负责从激光雷达获取数据、一个节点负责处理激光雷达的数据、一个节点负责定位等等）  
 - **节点交互**  
-  >- 话题-topics
-  >-  服务-services
-  >-  动作-Action
-  >-  参数-parameters  
-- **工作空间**   
+  >-  话题-topics (多对多,异步通信)   发布者、订阅者
+  >-  服务-services (一对多,你问我答的同步通信)   客户端，服务端
+  >-  动作-Action (一对多,同步通信)
+  >-  参数-parameters    
+  ---
+  >- 节点命令行常用操作  
+   `$ ros2 node list                  # 查看节点列表 ` 
+   `$ ros2 node info <node_name>       # 查看节点信息`    
+
+
+  >- 话题命令常用操作    
+   `$ ros2 topic list                # 查看话题列表 ` 
+   `$ ros2 topic info <topic_name>   # 查看话题信息`
+   `$ ros2 topic hz <topic_name>     # 查看话题发布频率`
+   `$ ros2 topic bw <topic_name>     # 查看话题传输带宽`
+   `$ ros2 topic echo <topic_name>   # 查看话题数据`
+   `$ ros2 topic pub <topic_name> <msg_type> <msg_data>   # 发布话题消息`   
+
+
+  >- 服务命令的常用操作  
+  `$ ros2 service list                  # 查看服务列表`
+  `$ ros2 service type <service_name>   # 查看服务数据类型`
+  `$ ros2 service call <service_name> <service_type> <service_data>   # 发送服务请求`  
+
+
+  >- 接口命令的常用操作   
+  `$ ros2 interface list                    # 查看系统接口列表`
+  `$ ros2 interface show <interface_name>   # 查看某个接口的详细定义`
+  `$ ros2 interface package <package_name>  # 查看某个功能包中的接口定义`   
+
+
+  >- 动作命令的常用操作  
+  `$ ros2 action list                  # 查看服务列表`
+  `$ ros2 action info <action_name>    # 查看服务数据类型`
+  `$ ros2 action send_goal <action_name> <action_type> <action_data>   # 发送服务请求`
+  ---
+- **通信接口**
+  给传递的数据定义的一个标准结构
+
+  - 话题通信接口的定义使用的是.msg文件
+  - 服务通信接口的定义使用的是.srv文件
+  - 动作是另外一种通信机制，用来描述机器人的一个运动过程，使用.action文件定义
+
+
+- **工作空间**      
    
   工作空间是包含若干个功能包的目录，可以把工作空间理解成一个文件夹。这个文件夹包含下有src   
 
@@ -745,7 +785,16 @@ class Fulltimeemployee(Employee):
   |ament_cmake|C++程序,是cmake的增强版|  
   
   创建功能包 : 
-  >ros2 pkg create   --build-type  {cmake,ament_cmake,ament_python}  --dependencies <依赖名字>
+  >ros2 pkg create   --build-type  {cmake,ament_cmake,ament_python}  --dependencies <依赖名字>  
+  >ros2 pkg create --build-type <build-type> <package_name>
+- **pkg**：表示功能包相关的功能；
+- **create**：表示创建功能包；  
+- **build-type**：表示新创建的功能包是C++还是Python的，如果使用C++或者C，那这里就跟ament_cmake，如果使用 Python，就跟ament_python；  
+- **package_name**：新建功能包的名字。  
+  ```python  
+  ros2 pkg create --build-type ament_cmake learning_pkg_c               # C++
+  ros2 pkg create --build-type ament_python learning_pkg_python # Python
+  ```
 #### 5.1.2 构建流程  
 - **创建工作空间**  
   >建立一个项目文件夹   
@@ -778,7 +827,12 @@ class Fulltimeemployee(Employee):
   <img src="https://s3.bmp.ovh/2026/07/15/keCSnQCz.png" width="450">  
 - **设置编译规则**  
 - **编译与测试**  
-  >colcon build
+  >colcon build  
+  - 如果说要构建工作空间下的单独功能包:  
+  `colcon build --packages-select 包名`  
+  - 如果一个工作空间各个包有某种依赖关系，构建顺序是一定的，也就是说需要先构建一个，然后再构建另一个  
+  `就在后构建包的package.xml文件里加上依赖关系：<depend>先构建的包名</depend>`  
+  `然后在该工作空间下进行colcon build时，就会先构建一个，再构建另一个`
 - **功能运行**  
   >. install/setup.bash (.后有空格)   
   ros2 run pkg01_hello_cpp hello_node (ros2 run 包 节点)  
@@ -787,6 +841,6 @@ class Fulltimeemployee(Employee):
 ### 5.2 遇到的问题  
 - 报错  Conflicting values set for option Signed-By  + 疯狂打印PGP密钥块  
   
-  <img src="https://s3.bmp.ovh/2026/07/15/GflRhfko.jpg" alt="b0b6cf9baa14482f99cb63744d23b382.jpg" /> 
+  <img src="https://s3.bmp.ovh/2026/07/15/GflRhfko.jpg" width="400"> 
 
-  >目录里有 ros2.resources 和 ros2.list 两个文件，冲突了，用sudo rm /etc/apt/sources.list.d/ros2.list 删掉了 ros2.list 就好了 
+  >目录里有 ros2.resources 和 ros2.list 两个文件，冲突了，用sudo rm /etc/apt/sources.list.d/ros2.list 删掉了 ros2.list 就好了  
