@@ -136,6 +136,12 @@ cd hoo-repo
 # 3. 查看远程SSH地址，验证绑定成功
 git remote -v   
 ```
+---
+-  1. git add 文件名               #将文件添加到缓冲区        
+     git add .                     #把所有文件添加到缓冲区  
+-  2. git reset 文件名             #将文件从缓冲区删掉  
+-  3. git commit -m "文字说明"     #将文件提交到git   
+-  4. git add 忽略文件.gitignore   #在此文件中添加要忽略掉的文件，再上传，此时再 git add . 的时候就不会再提交忽略掉的文件了
 
 ---
 ## 三、Linux 入门命令教程  
@@ -157,7 +163,8 @@ git remote -v
 - ---
 - **mkdir : 创建新目录**  
 - **touch : 创建空文件或更新文件时间**  
-- **cat : 一并查看输出文件的全部内容**  
+- **cat : 一并查看输出文件的全部内容**    
+- **nano : 文本编辑工具，输入nano 文件名，编辑完成后，摁Ctrl+O键，再摁回车键将内容写进文件，再摁Ctrl+X退出编辑**
 - **less : 分页查看大文件，不会一次性刷屏**  
 
   |交互快捷键|功能|
@@ -731,12 +738,11 @@ class Fulltimeemployee(Employee):
   >-  动作-Action (一对多,同步通信)
   >-  参数-parameters    
   ---
-  >- 节点命令行常用操作  
+  >- 节点命令行常用操作
    `$ ros2 node list                  # 查看节点列表 ` 
-   `$ ros2 node info <node_name>       # 查看节点信息`    
+   `$ ros2 node info <node_name>       # 查看节点信息`   
 
-
-  >- 话题命令常用操作    
+  >- 话题命令常用操作  
    `$ ros2 topic list                # 查看话题列表 ` 
    `$ ros2 topic info <topic_name>   # 查看话题信息`
    `$ ros2 topic hz <topic_name>     # 查看话题发布频率`
@@ -744,18 +750,15 @@ class Fulltimeemployee(Employee):
    `$ ros2 topic echo <topic_name>   # 查看话题数据`
    `$ ros2 topic pub <topic_name> <msg_type> <msg_data>   # 发布话题消息`   
 
-
   >- 服务命令的常用操作  
   `$ ros2 service list                  # 查看服务列表`
   `$ ros2 service type <service_name>   # 查看服务数据类型`
   `$ ros2 service call <service_name> <service_type> <service_data>   # 发送服务请求`  
 
-
-  >- 接口命令的常用操作   
+  >- 接口命令的常用操作 
   `$ ros2 interface list                    # 查看系统接口列表`
   `$ ros2 interface show <interface_name>   # 查看某个接口的详细定义`
   `$ ros2 interface package <package_name>  # 查看某个功能包中的接口定义`   
-
 
   >- 动作命令的常用操作  
   `$ ros2 action list                  # 查看服务列表`
@@ -837,10 +840,161 @@ class Fulltimeemployee(Employee):
   >. install/setup.bash (.后有空格)   
   ros2 run pkg01_hello_cpp hello_node (ros2 run 包 节点)  
   <img src="https://s3.bmp.ovh/2026/07/15/MK2XvDgK.png" width="430">  
----
-### 5.2 遇到的问题  
+---  
+#### 5.1.3 ros2查看话题的基本信息  
+- 1. 列出所有话题，找到目标
+ ros2 topic list 
+​
+- 2. 查看话题基础信息（发布/订阅数量+消息类型）
+ ros2 topic info /话题名 (-v)
+​
+- 3. 查看消息完整结构/定义
+ ros2 interface show （消息类型）status_interface/msg/SystemStatus   
+  先通过topic info 拿到`消息类型`，也就是 Topic type 后面的内容
+​
+- 4. 实时打印消息内容
+ ros2 topic echo /话题名  
+#### 5.1.4 ros2命令行手动发布消息
+- **ros2 topic pub --once /话题名 消息类型 "{数据键值对}"**
+参数说明：
+> 
+      --once ：只发1条，去掉会持续循环发消息
+    ​
+      /话题名 ：你要发布的频道
+    ​
+     消息类型：你的自定义消息/系统自带消息
+    ​
+      {} ：里面填你消息里所有字段的值  
+#### 5.1.5 ROS2 Python 发布者与订阅者  
+- 发布者代码实现  
+```python
+# 1. 导入 ROS2 基础工具
+import rclpy
+from rclpy.node import Node
+# 导入你自己写的消息类型（就像导入一张特制的信纸）
+from status_interface.msg import SystemStatus
+
+# 2. 创建节点类（广播员）
+class StatusPublisher(Node):
+    def __init__(self):
+        # 固定写法：创建节点，名字叫 status_pub
+        super().__init__("status_pub")
+        
+        # 3. 创建发布者
+        # 参数1：消息类型 SystemStatus
+        # 参数2：话题名字 /sys_status（频道号）
+        # 参数3：队列长度 10（如果听众没空听，先存 10 条消息）
+        self.publisher_ = self.create_publisher(SystemStatus, "/sys_status", 10)
+        # create_publisher(消息类型, 话题名, 队列)
+
+        # 4. 定时器：每隔 1 秒发一次消息
+        timer_period = 1.0
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+
+    # 定时器回调函数：每 1 秒自动执行，用来发消息
+    def timer_callback(self):
+        # 5. 创建一张空白消息纸条
+        msg = SystemStatus()
+        
+        # 6. 给纸条填充数据（注意：float 类型必须带 .0）
+        ---
+        msg.cpu_percent = 15.6
+        msg.memory_total = 4040810496.0
+        msg.memory_available = 907255808.0
+        ---
+        
+        # 7. 把纸条发送到 /sys_status 话题
+        self.publisher_.publish(msg)
+        
+        # 终端打印日志，方便看有没有发成功
+        self.get_logger().info(f"已发送：CPU占用 {msg.cpu_percent}%")
+
+# 程序入口函数
+def main(args=None):
+    # 初始化 ROS2 系统
+    rclpy.init(args=args)
+    # 实例化发布节点
+    status_pub = StatusPublisher()
+    # 循环等待定时器触发，持续运行节点
+    rclpy.spin(status_pub)
+    # 关闭程序，释放资源
+    status_pub.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
+```  
+- 订阅者代码实现
+```python
+import rclpy
+from rclpy.node import Node
+# 导入自定义消息
+from status_interface.msg import SystemStatus
+
+class StatusSubscriber(Node):
+    def __init__(self):
+        # 创建订阅节点，名字 status_sub
+        super().__init__("status_sub")
+        
+        # 1. 创建订阅者
+        # 参数1：消息类型
+        # 参数2：话题名称（必须和发布者一模一样 /sys_status）
+        # 参数3：收到消息后自动执行的回调函数
+        # 参数4：队列长度 10
+        self.subscription = self.create_subscription(
+            SystemStatus,
+            "/sys_status",
+            self.listener_callback,
+            10
+        )
+        self.subscription  # 防止系统自动回收订阅器，固定写法
+
+    # 收到消息自动触发这个函数，msg 就是收到的完整纸条
+    def listener_callback(self, msg):
+        # 直接读取消息里的所有数据
+        cpu = msg.cpu_percent
+        total_mem = msg.memory_total
+        free_mem = msg.memory_available
+        
+        # 终端打印收到的内容
+        self.get_logger().info(f"""
+        收到设备状态：
+        CPU使用率：{cpu}%
+        总内存：{total_mem}
+        可用内存：{free_mem}
+        """)
+
+def main(args=None):
+    rclpy.init(args=args)
+    status_sub = StatusSubscriber()
+    # 循环监听话题，一直等消息过来
+    rclpy.spin(status_sub)
+    # 退出清理
+    status_sub.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
+```  
+- 如何查看和选择标准消息？
+>- 列出所有可用消息：`ros2 interface list --only-msgs`
+>- 查看某个消息的具体结构：`ros2 msg show geometry_msgs/Twist`    
+
+| 消息包 | 核心用途 | 典型消息类型 | 使用场景举例 |
+| :--- | :--- | :--- | :--- |
+| `std_msgs` | 基础数据类型 | `String`, `Int32`, `Float64`, `Bool`, `Header` | 发送简单的调试信息、状态标志、基础数值 |
+| `geometry_msgs` | 几何与运动控制 | `Twist`, `Pose`, `Point`, `Quaternion` | 控制机器人移动速度、描述位姿、发送坐标点 |
+| `sensor_msgs` | 传感器数据 | `Image`, `LaserScan`, `Imu`, `JointState` | 接收摄像头图像、激光雷达点云、IMU数据 |
+| `nav_msgs` | 导航与定位 | `Odometry`, `Path`, `OccupancyGrid` | 发布里程计信息、规划路径、传输地图数据 |
+| `visualization_msgs` | 可视化 | `Marker`, `MarkerArray` | 在 RViz 中显示箭头、立方体等调试标记 |<websource>source_group_web_2</websource>
+
+
+### 5. 遇到的问题  
 - 报错  Conflicting values set for option Signed-By  + 疯狂打印PGP密钥块  
   
   <img src="https://s3.bmp.ovh/2026/07/15/GflRhfko.jpg" width="400"> 
 
   >目录里有 ros2.resources 和 ros2.list 两个文件，冲突了，用sudo rm /etc/apt/sources.list.d/ros2.list 删掉了 ros2.list 就好了  
+- AttributeError: 类初始化漏写 super().init("节点名")，节点基础功能缺失  
+- PyFloat_Check 浮点崩溃：msg定义float，代码赋值纯整数  
+- ros2 run 找不到节点：新开终端没执行 source install/setup.bash
