@@ -975,18 +975,579 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
-```  
+```   
+- 编译代码
+colcon build --packages-select status_interface status_publisher
+- 刷新环境变量（每个新终端都要执行）
+source install/setup.bash
+- 终端 A：启动发布者（持续发数据）
+ros2 run status_publisher sys_status_pub
+- 终端 B：启动订阅者（实时接收打印）
+ros2 run status_publisher sys_status_sub  
+
+
+---
 - 如何查看和选择标准消息？
 >- 列出所有可用消息：`ros2 interface list --only-msgs`
 >- 查看某个消息的具体结构：`ros2 msg show geometry_msgs/Twist`    
 
 | 消息包 | 核心用途 | 典型消息类型 | 使用场景举例 |
 | :--- | :--- | :--- | :--- |
-| `std_msgs` | 基础数据类型 | `String`, `Int32`, `Float64`, `Bool`, `Header` | 发送简单的调试信息、状态标志、基础数值 |
+| `std_msgs.msg` | 基础数据类型 | `StringMsg`, `Int32`, `Float64`, `Bool`, `Header` | 发送简单的调试信息、状态标志、基础数值 |
 | `geometry_msgs` | 几何与运动控制 | `Twist`, `Pose`, `Point`, `Quaternion` | 控制机器人移动速度、描述位姿、发送坐标点 |
 | `sensor_msgs` | 传感器数据 | `Image`, `LaserScan`, `Imu`, `JointState` | 接收摄像头图像、激光雷达点云、IMU数据 |
 | `nav_msgs` | 导航与定位 | `Odometry`, `Path`, `OccupancyGrid` | 发布里程计信息、规划路径、传输地图数据 |
 | `visualization_msgs` | 可视化 | `Marker`, `MarkerArray` | 在 RViz 中显示箭头、立方体等调试标记 |<websource>source_group_web_2</websource>
+### 5.2 话题——自定义消息（通信接口）
+#### 5.2.1 整体流程
+
+1.  新建专门放消息的功能包（`status_interface`）  
+   进入工作空间 `src` 目录：
+
+```bash
+cd ~/topic_practices_ws/src
+ros2 pkg create --build-type ament_cmake status_interface
+```  
+> **⚠️ 注意**：消息包只能用 `ament_cmake`，不能用 `ament_python`。  
+
+2.  在包内创建 `msg` 文件夹，写 `.msg` 消息文件  
+   ```bash
+cd status_interface
+mkdir msg
+cd msg
+nano SystemStatus.msg
+```  
+写入你自定义的数据（示例）：
+
+```text
+# 自定义状态消息
+int32 cpu_temp
+float64 memory_usage
+string device_name
+bool is_normal
+```
+
+保存退出（`Ctrl+O` 回车，`Ctrl+X`）。
+3.  修改 `package.xml`、`CMakeLists.txt` 配置编译规则  
+   将以下内容添加到文件中：
+
+```xml
+<buildtool_depend>rosidl_default_generators</buildtool_depend>
+<exec_depend>rosidl_default_runtime</exec_depend>
+<member_of_group>rosidl_interface_packages</member_of_group>
+```  
+修改 `status_interface/CMakeLists.txt`
+
+在文件末尾添加：
+
+```cmake
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/SystemStatus.msg"
+  DEPENDENCIES std_msgs
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+```
+4.  编译消息包  
+   回到工作空间根目录：
+
+```bash
+cd ~/topic_practices_ws
+colcon build --packages-select status_interface
+source install/setup.bash
+```
+5.  在业务包（`status_publisher`）里导入自定义消息使用  
+```python
+from status_interface.msg import SystemStatus
+```
+业务包（`status_publisher`）配置依赖，即打开 `status_publisher/package.xml`，添加依赖：
+
+```xml
+<depend>status_interface</depend>
+```  
+#### 5.2.2 信息接口支持的数据类型  
+
+1. 基本类型（标量）
+
+这是编程中常见的底层数据类型，包括：
+
+    布尔值： bool 
+
+    整型： int8 ,  uint8 ,  int16 ,  uint16 ,  int32 ,  uint32 ,  int64 ,  uint64 （分为有符号和无符号）
+
+    浮点型： float32 ,  float64 
+
+    字符串： string （默认 UTF-8 编码）、 wstring （宽字符）
+
+    时间相关： time （时间戳）、 duration （持续时间）
+
+    字符型： char ,  byte  
+2.  数组与序列类型
+
+用于存放多个相同类型的数据，支持固定长度和动态长度：
+> 动态长度序列（可变数组）：在类型后加  [] ，例如  float32[] ranges  或  string[]  
+> 
+> 固定长度数组：在类型后加  [N] （N为具体整数），例如  float32 position  或  int32
+  
+  ---
+### 5.3 ROS2 服务通信——客户端与服务端完整实现
+- 服务端（Server）：提供特定功能，等待并处理客户端的请求，返回响应结果。
+- 客户端（Client）：向服务端发送请求，并等待接收响应。
+- 服务接口（Service Interface）：定义请求和响应的数据结构，使用 .srv 文件描述  
+#### 5.3.1   自定义服务接口
+- **创建服务接口包**
+服务接口必须使用 `ament_cmake` 构建类型，与消息接口包类似。
+
+```bash
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_cmake my_service_interface
+```
+- **编写 .srv 文件**
+在包内创建 `srv` 目录，并定义服务文件 `AddTwoInts.srv`。
+
+```bash
+cd my_service_interface
+mkdir srv
+cd srv
+touch AddTwoInts.srv
+nano AddTwoInts.srv
+摁Ctrl+O,回车，Ctrl+X保存
+```
+
+文件内容如下，`---` 上方为请求部分，下方为响应部分：
+
+```text
+int64 a
+int64 b
+---
+int64 sum
+```
+
+- **配置编译规则**
+
+修改 `package.xml`添加以下依赖：
+
+```xml
+<buildtool_depend>rosidl_default_generators</buildtool_depend>
+<exec_depend>rosidl_default_runtime</exec_depend>
+<member_of_group>rosidl_interface_packages</member_of_group>
+```
+
+修改 `CMakeLists.txt`在文件末尾添加：
+
+```cmake
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/AddTwoInts.srv"
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+```
+
+- **编译服务接口包**
+```bash
+cd ~/ros2_ws
+colcon build --packages-select my_service_interface
+source install/setup.bash
+```  
+#### 5.3.2 服务端代码实现  
+```python
+import rclpy
+from rclpy.node import Node
+from my_service_interface.srv import AddTwoInts
+
+class AddTwoIntsServer(Node):
+    def __init__(self):
+        super().__init__('add_two_ints_server')
+        # 创建服务端：接口类型、服务名、回调函数
+        self.srv = self.create_service(
+            AddTwoInts,
+            'add_two_ints',
+            self.add_two_ints_callback
+        )
+        self.get_logger().info('AddTwoInts 服务端已启动')
+
+    def add_two_ints_callback(self, request, response):
+        """服务回调函数：处理请求并返回响应"""
+        response.sum = request.a + request.b
+        self.get_logger().info(f'收到请求: {request.a} + {request.b} = {response.sum}')
+        return response  # 必须返回响应对象
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = AddTwoIntsServer()
+    rclpy.spin(node)  # 保持节点运行，持续等待请求
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```  
+#### 5.3.3 客户端代码实现  
+```python
+import sys
+import rclpy
+from rclpy.node import Node
+from my_service_interface.srv import AddTwoInts
+
+class AddTwoIntsClient(Node):
+    def __init__(self):
+        super().__init__('add_two_ints_client')
+        # 创建客户端：接口类型、服务名
+        self.cli = self.create_client(AddTwoInts, 'add_two_ints')
+        # 等待服务端上线
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('服务端未就绪，等待中...')
+        self.get_logger().info('服务端已就绪')
+
+    def send_request(self, a, b):
+        """发送异步请求并等待响应"""
+        request = AddTwoInts.Request()
+        request.a = a
+        request.b = b
+        # 异步调用服务
+        future = self.cli.call_async(request)
+        # 阻塞等待响应完成
+        rclpy.spin_until_future_complete(self, future)
+        return future.result()
+
+def main(args=None):
+    rclpy.init(args=args)
+    client = AddTwoIntsClient()
+
+    # 从命令行参数获取两个整数
+    if len(sys.argv) != 3:
+        client.get_logger().error('用法: ros2 run my_service_pkg service_client <a> <b>')
+        client.destroy_node()
+        rclpy.shutdown()
+        return
+
+    a = int(sys.argv)
+    b = int(sys.argv)
+    response = client.send_request(a, b)
+
+    if response is not None:
+        client.get_logger().info(f'结果: {a} + {b} = {response.sum}')
+    else:
+        client.get_logger().error('服务调用失败')
+
+    client.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```  
+- `wait_for_service()`：客户端启动后需等待服务端上线，避免请求丢失。
+- `call_async()`：ROS2 服务调用是异步的，返回一个 `future` 对象。
+- `spin_until_future_complete()`：阻塞当前线程直到响应返回，实现同步调用效果。  
+#### 5.3.4 业务包配置与编译  
+- **创建业务包**
+```bash
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_python my_service_pkg \
+  --node-name service_server \
+  --node-name service_client \
+  --dependencies rclpy my_service_interface
+```
+
+- **配置 `setup.py`**
+确保入口点正确注册：
+
+```python
+entry_points={
+    'console_scripts': [
+        'service_server = my_service_pkg.service_server:main',
+        'service_client = my_service_pkg.service_client:main',
+    ],
+},
+```
+
+- **编译业务包**
+```bash
+cd ~/ros2_ws
+colcon build --packages-select my_service_interface my_service_pkg
+source install/setup.bash
+```  
+- **启动服务端**
+```bash
+ros2 run my_service_pkg service_server
+```
+
+- **启动客户端**
+```bash
+ros2 run my_service_pkg service_client 5 10  
+```  
+### 5.4 动作通信   
+动作通信由三个核心部分构成，对应 `.action` 文件的三个段落：
+1.  **目标 (Goal)**：客户端发送给服务端的任务指令（如“移动到坐标 (1.0, 2.0)”）。
+2.  **反馈 (Feedback)**：服务端在执行过程中周期性发送给客户端的进度信息（如“当前进度 50%”）。
+3.  **结果 (Result)**：任务完成后服务端发送给客户端的最终结果（如“到达目标，耗时 10 秒”）。  
+#### 5.4.1 自定义动作接口  
+- **创建动作接口包**
+
+动作接口包必须使用 `ament_cmake` 构建类型：
+
+```bash
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_cmake my_action_interface
+```
+
+- **编写 .action 文件**
+
+在包内创建 `action` 目录，并定义动作文件 `MoveCircle.action`：
+
+```bash
+cd my_action_interface
+mkdir action
+cd action
+touch MoveCircle.action
+nano MoveCircle.action
+摁Ctrl+O,回车，Ctrl+X保存
+```
+
+文件内容如下，使用 `---` 分隔三个部分：
+
+```text
+# 目标：是否启用转圈
+bool enable
+---
+# 反馈：当前旋转角度（0-360）
+int32 state
+---
+# 结果：是否成功完成
+bool finish
+```
+- **配置编译规则**
+修改 `package.xml`添加以下依赖：
+```xml
+<buildtool_depend>rosidl_default_generators</buildtool_depend>
+<exec_depend>rosidl_default_runtime</exec_depend>
+<member_of_group>rosidl_interface_packages</member_of_group>
+```
+
+修改 `CMakeLists.txt`在文件末尾添加：
+
+```cmake
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/MoveCircle.action"
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+```
+
+- **编译动作接口包**
+
+```bash
+cd ~/ros2_ws
+colcon build --packages-select my_action_interface
+source install/setup.bash
+```  
+#### 5.4.2 业务包配置与编译
+- **创建业务包**
+```bash
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_python my_action_pkg \
+  --dependencies rclpy my_action_interface
+```
+- **配置 `setup.py`（依据实际代码文件名称书写）**
+
+```python
+entry_points={
+    'console_scripts': [
+        'action_server = my_action_pkg.action_server:main',
+        'action_client = my_action_pkg.action_client:main',
+    ],
+},
+```
+
+- **编译业务包**  
+```bash
+cd ~/ros2_ws
+colcon build --packages-select my_action_interface my_action_pkg
+source install/setup.bash
+```
+#### 5.4.3 服务端与客户端代码实现  
+- **服务端(模版)**  
+```python
+import time
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionServer
+from my_action_interface.action import MoveCircle
+
+class MoveCircleActionServer(Node):
+    def __init__(self):
+        super().__init__('move_circle_server')
+        # 创建动作服务端：接口类型、动作名、执行回调
+        self._action_server = ActionServer(
+            self,
+            MoveCircle,
+            'move_circle',
+            self.execute_callback
+        )
+        self.get_logger().info('动作服务端已启动')
+
+    def execute_callback(self, goal_handle):
+        """执行收到目标后的处理函数"""
+        self.get_logger().info('开始执行转圈任务...')
+
+        # 创建反馈消息对象
+        feedback_msg = MoveCircle.Feedback()
+
+        # 模拟转圈过程，每30度发送一次反馈
+        for i in range(0, 360, 30):
+            # 检查任务是否被取消
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                self.get_logger().info('任务被取消')
+                return MoveCircle.Result(finish=False)
+
+            # 更新并发送反馈
+            feedback_msg.state = i
+            self.get_logger().info(f'当前角度: {i}°')
+            goal_handle.publish_feedback(feedback_msg)
+            time.sleep(0.5)  # 模拟耗时操作
+
+        # 任务成功完成
+        goal_handle.succeed()
+        result = MoveCircle.Result()
+        result.finish = True
+        self.get_logger().info('转圈任务完成')
+        return result
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MoveCircleActionServer()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+- **客户端（模版）**
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from my_action_interface.action import MoveCircle
+
+class MoveCircleActionClient(Node):
+    def __init__(self):
+        super().__init__('move_circle_client')
+        # 创建动作客户端：接口类型、动作名
+        self._action_client = ActionClient(
+            self,
+            MoveCircle,
+            'move_circle'
+        )
+        self.get_logger().info('动作客户端已启动')
+
+    def send_goal(self, enable=True):
+        """发送动作目标"""
+        # 等待服务端上线
+        self._action_client.wait_for_server()
+
+        # 创建目标消息
+        goal_msg = MoveCircle.Goal()
+        goal_msg.enable = enable
+
+        self.get_logger().info('发送目标...')
+
+        # 异步发送目标，注册反馈和结果回调
+        send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+        send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        """目标响应回调：服务端是否接受目标"""
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('目标被拒绝')
+            return
+
+        self.get_logger().info('目标被接受')
+        # 注册结果回调
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        """反馈回调：接收进度信息"""
+        feedback = feedback_msg.feedback
+        self.get_logger().info(f'收到反馈: 当前角度 {feedback.state}°')
+
+    def result_callback(self, future):
+        """结果回调：接收最终结果"""
+        result = future.result().result
+        self.get_logger().info(f'任务完成: finish={result.finish}')
+        rclpy.shutdown()
+
+def main(args=None):
+    rclpy.init(args=args)
+    client = MoveCircleActionClient()
+    client.send_goal(enable=True)
+    rclpy.spin(client)
+
+if __name__ == '__main__':
+    main()
+```
+#### 5.4.5 运行  
+- **启动服务端**
+
+```bash
+ros2 run my_action_pkg action_server
+```
+
+- **启动客户端**
+
+```bash
+ros2 run my_action_pkg action_client
+```
+
+- **预期输出:**
+
+**服务端终端**：
+```
+[INFO] 动作服务端已启动
+[INFO] 开始执行转圈任务...
+[INFO] 当前角度: 0°
+[INFO] 当前角度: 30°
+...
+[INFO] 当前角度: 330°
+[INFO] 转圈任务完成
+```
+
+**客户端终端**：
+```
+[INFO] 动作客户端已启动
+[INFO] 发送目标...
+[INFO] 目标被接受
+[INFO] 收到反馈: 当前角度 0°
+[INFO] 收到反馈: 当前角度 30°
+...
+[INFO] 收到反馈: 当前角度 330°
+[INFO] 任务完成: finish=True
+```  
+- **命令行测试**
+无需编写客户端代码，可使用 ROS2 内置命令测试动作：
+```bash
+# 发送目标并查看反馈
+ros2 action send_goal /move_circle my_action_interface/action/MoveCircle "{enable: true}" --feedback
+```
+| 命令部分 | 含义 | 作用 |
+| :--- | :--- | :--- |
+| `ros2 action send_goal` | 发送动作目标 | 固定命令，告诉 ROS2 你要执行一个动作 |
+| `/move_circle` | 动作名称 | 指定要调用哪个动作（必须与服务端注册的名称完全一致） |
+| `my_action_interface/action/MoveCircle` | 动作接口类型 | 告诉 ROS2 这个动作的数据结构是什么（用于验证目标格式） |
+| `"{enable: true}"` | 目标数据 | 以 YAML 格式传入 Goal 参数（对应 `.action` 文件中 `---` 上方的字段） |
+| `--feedback` | 显示反馈 | 可选参数，加上后会实时打印执行过程中的 Feedback 信息 |
 
 
 ### 5. 遇到的问题  
@@ -996,5 +1557,10 @@ if __name__ == "__main__":
 
   >目录里有 ros2.resources 和 ros2.list 两个文件，冲突了，用sudo rm /etc/apt/sources.list.d/ros2.list 删掉了 ros2.list 就好了  
 - AttributeError: 类初始化漏写 super().init("节点名")，节点基础功能缺失  
-- PyFloat_Check 浮点崩溃：msg定义float，代码赋值纯整数  
+- PyFloat_Check 浮点崩溃：msg定义float，代码赋值纯整数   
 - ros2 run 找不到节点：新开终端没执行 source install/setup.bash
+- No executable found
+  >1.package.xml没有注册  
+  >  
+  >2.setup.py的entry_points入口配置缺失
+  '可执行文件的名字（可以自己起，亦可以与.py文件名字一样）=包名.节点名:main',(在引号后面要加一个逗号)
