@@ -1549,6 +1549,382 @@ ros2 action send_goal /move_circle my_action_interface/action/MoveCircle "{enabl
 | `"{enable: true}"` | 目标数据 | 以 YAML 格式传入 Goal 参数（对应 `.action` 文件中 `---` 上方的字段） |
 | `--feedback` | 显示反馈 | 可选参数，加上后会实时打印执行过程中的 Feedback 信息 |
 
+### 5.5 参数
+
+ROS2 参数（Parameter）是一种用于**动态配置和管理节点行为**的机制。与话题（Topic）的持续数据流和服务（Service）的请求-响应不同，参数是节点内部的“配置字典”，允许在运行时修改节点设置而无需重新编译或重启。
+
+
+#### 5.5.1 参数类型
+
+ROS2 支持以下参数类型：
+
+- `bool` / `bool[]`：布尔类型，用于开关控制
+- `int64` / `int64[]`：整数类型，用于数值配置
+- `float64` / `float64[]`：浮点类型，用于小数配置
+- `string` / `string[]`：字符串类型，用于文本配置
+- `byte[]`：字节数组，用于图片、点云等二进制数据
+
+#### 5.5.2 命令行工具
+
+ROS2 提供了完整的 `ros2 param` 命令集，用于参数的查询、修改和持久化。
+
+- 列出参数
+
+```bash
+# 列出所有节点的参数
+ros2 param list
+
+# 列出指定节点的参数
+ros2 param list /turtlesim
+```
+
+输出示例：
+```
+/turtlesim:
+  background_b
+  background_g
+  background_r
+  use_sim_time
+```
+
+- 查看参数详情
+
+```bash
+ros2 param describe /turtlesim background_b
+```
+
+- 获取参数值
+
+```bash
+ros2 param get /turtlesim background_b
+```
+- 设置参数值
+
+```bash
+# 设置单个参数
+ros2 param set /turtlesim background_r 150
+```
+
+- 导出参数
+
+```bash
+# 导出节点参数到 YAML 文件
+ros2 param dump /turtlesim > turtlesim_params.yaml
+```
+
+生成的 YAML 文件内容：
+```yaml
+/turtlesim:
+  ros__parameters:
+    background_b: 255
+    background_g: 86
+    background_r: 150
+    use_sim_time: false
+```
+
+- 加载参数
+
+```bash
+# 从 YAML 文件加载参数到运行中的节点
+ros2 param load /turtlesim turtlesim_params.yaml
+
+# 启动节点时加载参数文件
+ros2 run turtlesim turtlesim_node --ros-args --params-file turtlesim_params.yaml
+```
+
+- 删除参数
+
+```bash
+ros2 param delete /turtlesim background_b
+```
+
+####  5.5.3 Python 节点中的参数使用
+
+- **声明与获取参数**
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class ParameterNode(Node):
+    def __init__(self):
+        super().__init__('parameter_node')
+
+        # 声明参数：名称、默认值、描述、约束
+        self.declare_parameter('robot_name', 'default_robot')
+        self.declare_parameter('max_speed', 1.5)
+        self.declare_parameter('enable_lidar', True)
+
+        # 获取参数值
+        robot_name = self.get_parameter('robot_name').value
+        max_speed = self.get_parameter('max_speed').value
+        enable_lidar = self.get_parameter('enable_lidar').value
+
+        self.get_logger().info(f'Robot: {robot_name}, Speed: {max_speed}, Lidar: {enable_lidar}')
+
+def main():
+    rclpy.init()
+    node = ParameterNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+- **监听参数变化**
+
+```python
+import rclpy
+from rclpy.node import Node
+from rcl_interfaces.msg import SetParametersResult
+
+class ParameterMonitor(Node):
+    def __init__(self):
+        super().__init__('parameter_monitor')
+
+        # 声明参数
+        self.declare_parameter('log_level', 20)  # INFO level
+
+        # 注册参数回调函数
+        self.add_on_set_parameters_callback(self.parameter_callback)
+
+    def parameter_callback(self, params):
+        """参数修改回调：验证并处理参数变更"""
+        for param in params:
+            if param.name == 'log_level':
+                # 验证参数范围
+                if param.value < 0 or param.value > 50:
+                    return SetParametersResult(
+                        successful=False,
+                        reason='log_level must be between 0 and 50'
+                    )
+                # 应用新参数
+                self.get_logger().set_level(param.value)
+                self.get_logger().info(f'Log level changed to {param.value}')
+
+        return SetParametersResult(successful=True)
+
+def main():
+    rclpy.init()
+    node = ParameterMonitor()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+- 参数回调返回值
+
+>- `SetParametersResult` 用于控制参数修改是否成功：  
+>- `successful=True`：参数修改成功
+ >  - `successful=False`：参数修改被拒绝，`reason` 字段说明原因
+
+#### 5.5.4 启动文件中的参数配置
+
+- **YAML 参数文件**
+
+创建 `params.yaml`：
+
+```yaml
+/robot_controller:
+  ros__parameters:
+    max_speed: 2.0
+    enable_obstacle_avoidance: true
+    sensor_topic: "/lidar_scan"
+```
+
+
+- **命令行启动时加载参数**
+
+```bash
+ros2 run my_robot_pkg robot_controller --ros-args --params-file params.yaml
+```
+
+- **参数组**
+
+```python
+# 声明参数组
+self.declare_parameter('sensor.ip', '192.168.1.100')
+self.declare_parameter('sensor.port', 8080)
+self.declare_parameter('sensor.timeout', 5.0)
+```
+
+- **跨节点参数访问**
+
+```python
+# 从其他节点获取参数
+from rclpy.parameter import Parameter
+
+# 创建参数客户端
+param_client = self.create_client(
+    rcl_interfaces.srv.GetParameters,
+    '/other_node/get_parameters'
+)
+
+# 发送请求
+request = rcl_interfaces.srv.GetParameters.Request()
+request.names = ['robot_name']
+future = param_client.call_async(request)
+```
+
+---
+
+
+-实战示例
+
+- 启动 Turtlesim
+
+```bash
+ros2 run turtlesim turtlesim_node
+```
+
+- 查看背景颜色参数
+
+```bash
+ros2 param list /turtlesim
+# 输出：background_b, background_g, background_r
+```
+
+- 修改背景颜色
+
+```bash
+# 设置红色通道为 200
+ros2 param set /turtlesim background_r 200
+
+# 设置绿色通道为 100
+ros2 param set /turtlesim background_g 100
+
+# 设置蓝色通道为 50
+ros2 param set /turtlesim background_b 50
+```
+
+- 保存配置
+
+```bash
+ros2 param dump /turtlesim > background_config.yaml
+```
+
+- 恢复配置
+
+```bash
+ros2 param load /turtlesim background_config.yaml
+```
+---
+### 5.6 使用launch文件启动多个节点  
+- 1. 新建launch文件夹，再该文件夹下新建demo.launch.py文件
+   ```
+    from launch import LaunchDescription
+    from launch_ros.actions import Node
+
+    def generate_launch_description():(名字不可改)
+        return LaunchDescription([
+            # 在这里添加启动动作
+        ])
+   ```  
+| Action | 作用 | 关键参数 |
+| :--- | :--- | :--- |
+| `Node` | 启动一个 ROS2 节点 | package, executable, name, namespace, parameters, remappings |
+| `IncludeLaunchDescription` | 嵌套包含其他 Launch 文件 | launch_file_source, launch_arguments |
+| `DeclareLaunchArgument` | 声明启动参数 | name, default_value, description, choices |
+| `SetEnvironmentVariable` | 设置环境变量 | name, value |
+| `LogInfo` | 输出日志信息 | msg |
+| `TimerAction` | 延迟启动 | period, actions |
+| `RegisterEventHandler` | 注册事件处理器 | event_handler (如 OnProcessExit) |
+
+```python
+#!/usr/bin/env python3
+# ROS2 launch批量启动多节点模板
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction
+from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration, FindPackageShare
+from launch_ros.parameter_descriptions import ParameterFile
+
+def generate_launch_description():
+    """
+    这个函数是 Launch 文件的唯一入口。
+    ros2 launch 命令执行时，会自动调用这个函数，
+    并读取它返回的 LaunchDescription 对象来启动所有节点。
+    """
+    # 1. 定义启动参数
+    robot_id_arg = DeclareLaunchArgument(
+        "robot_id",   # 参数名
+        default_value="01",  # 默认值
+        description="机器人编号"  # 描述
+    )
+    robot_id = LaunchConfiguration("robot_id")
+
+    # 加载yaml参数文件
+    params_file = ParameterFile(
+        FindPackageShare("your_package") + "/config/params.yaml"
+    )
+
+    # 2. 定义多个节点
+    # 节点1：雷达驱动
+    lidar_node = Node(
+        package="your_package",
+        executable="lidar_driver",
+        name="lidar_node",
+        output="screen",
+        respawn=True,
+        parameters=[params_file, {"lidar_port": "/dev/ttyUSB0"}],
+        remappings=[("/scan", ["/", robot_id, "/scan"])]
+    )
+
+    # 节点2：图像识别
+    camera_node = Node(
+        package="your_package",
+        executable="camera_detect",
+        name="camera_node",
+        namespace="camera_group",  # 命名空间
+        output="log",
+        parameters=[{"img_width": 640}],
+        remappings=[("/image_raw", "/camera/image")]
+    )
+
+    # 节点3：运动控制
+    control_node = Node(
+        package="control_pkg",
+        executable="move_controller",
+        name="control_node",
+        output="screen"
+    )
+
+    # 启动rviz可视化工具
+    rviz = ExecuteProcess(
+        cmd=["rviz2", "-d", FindPackageShare("your_package") + "/config/display.rviz"],
+        output="screen"
+    )
+
+    # 汇总所有要启动的动作/节点
+    ld = LaunchDescription()
+    ld.add_action(robot_id_arg)
+    ld.add_action(lidar_node)
+    ld.add_action(camera_node)
+    ld.add_action(control_node)
+    ld.add_action(rviz)
+
+    return ld
+```
+- **CMakeLists.txt 配置**  
+  ```cmake
+  install(
+  DIRECTORY launch config
+  DESTINATION share/${PROJECT_NAME}/
+  )
+    ```  
+- **启动**
+    ```bash
+        # 启动
+    ros2 launch your_package multi_node.launch.py
+
+    # 传参启动
+    ros2 launch your_package multi_node.launch.py robot_id:=02
+    ```
 
 ### 5. 遇到的问题  
 - 报错  Conflicting values set for option Signed-By  + 疯狂打印PGP密钥块  
@@ -1564,3 +1940,120 @@ ros2 action send_goal /move_circle my_action_interface/action/MoveCircle "{enabl
   >  
   >2.setup.py的entry_points入口配置缺失
   '可执行文件的名字（可以自己起，亦可以与.py文件名字一样）=包名.节点名:main',(在引号后面要加一个逗号)
+- 运行ros2 run turtlesim turtlesim_node 时没有可视化界面，捎带其他需要可视化界面的都不可以了 
+  ```
+  操作步骤:
+    1、清空错误显示配置
+    
+    新开干净终端，只输这两行：
+    unset DISPLAY
+    echo $DISPLAY
+    
+    2、修复Qt缺失插件
+    sudo apt update
+    sudo apt reinstall qtbase5-plugin-platform-xcb libxcb-xkb1  
+    3、设置WSLg图形渲染
+    
+    export QT_QPA_PLATFORM=xcb
+    export QT_QPA_PLATFORM_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/qt5/plugins/platforms
+     
+    4、完全重启WSL
+    
+    1. 关掉所有VS Code窗口
+    2. 管理员CMD执行：
+    
+    wsl --shutdown
+     
+    
+    5、重新打开VS Code启动海龟
+    pkill -f turtlesim
+    ros2 run turtlesim turtlesim_node
+    ```  
+## 六、c++ 学习  
+### 5.1 STL篇  
+#### 5.1.1 vector(动态数组)  
+```cpp
+#include <vector>
+vector<int> v;          //只是定义，没有分配内存
+vector<int> v(10);      //定义并且分配了10个单位的内存，并且默认都是0
+vector<int> v(10,2);        //定义并且分配了10个单位的内存，并且都赋值为2  
+v.push_back(data);          // 尾部添加新的数据  
+v[2] //随机访问，访问下标为2的数，默认从0开始 
+v.erase(v.begin() + 1);  // 删除索引为 1 的元素
+v.pop_back();            // 删除尾部元素
+v.size();               //获取长度
+v.resize();             //分配数组大小
+
+```  
+#### 5.1.2 set(集合) 元素互异，自动地按从小到大排 
+```cpp
+#include <set>  
+set <int> p;        //p后不能加东西
+p.insert(data);     //添加数据，仍然按照从小到大排
+p.erase(2);         //删掉数值为data的数字
+p.erase(迭代器);    //删除迭代器指向节点
+
+auto q=p.begin();
+q++;(可以q++多次但不能q+=2/3等等)
+p.erase(迭代器，迭代器)//删除这个区间内的节点
+
+for(auto l=p.begin();l!=p.end();l++)
+        cout<<*l<<" ";  //迭代器
+p.find(data)           //在p里面找数值为data的并返回其指针
+cout<< (p.find(100) != p.end()) <<endl;//可以用来比较100是否在p里面，如果在，就返回1，否则就返回0
+p.size();               //获取长度
+---  
+unordered_set(区别在不进行排序)
+#include<unordered_set>
+unordered_set<int>s;
+```  
+#### 5.1.3 map(键值对) 
+自动地按键值对从小到大排
+```cpp
+#include<map>
+map<string ,int>s;(键和值的类型都可以)  
+s[键]=值;       //可以修改/赋数值
+s["hello"]=1;  //eg.
+for(auto i=s.begin();i!=s.end();i++)
+        cout<< i->first(键)<<" "<<i->second(值)<<endl;  
+s.size();               //获取长度
+---  
+unordered_map(区别在不进行排序)
+#include<unordered_map>
+unordered_map<string ,int>s;
+
+```
+#### 5.1.4 stack(栈)  
+```cpp
+#include<stack>
+using namespace std;
+stack<int>s;    //创建栈
+s.push(data);   //压入栈
+s.pop();    //出栈
+s.top();    //取栈顶
+s.size();   //获取长度
+```
+#### 5.1.5 queue(队列)  
+```cpp
+#include<queue>
+queue<int>s;    //创建队列
+s.push(data);       //入队
+s.pop();        //出队
+s.front();      //访问队首
+s.back();       //访问队尾
+s.size();   //获取长度
+```  
+#### 5.1.6 sort(排序)  
+```cpp
+#include<algorithm>
+sort(可以放数组或者是vector)
+是vector 的话vector<int>s;
+sort(s.begin(),s.end(),cmp)
+s.end是s里面最后一个元素的后一个位置[)左闭右开
+是数组的话，int []arr;
+sort(arr,arr+n,cmp)
+cmp是自定义排序函数，如果不写的话默认从小到大排序
+bool cmp(int x,int y)
+如果返回值为真，那么x放在y前面
+cmp返回值部分必须是>/<,而不能是>=/<=
+```
